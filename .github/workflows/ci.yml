@@ -41,3 +41,26 @@ jobs:
 
       - name: PHPUnit
         run: vendor/bin/phpunit
+
+  quality:
+    name: Coding standard and static analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: cs2pr
+          coverage: none
+
+      - name: Composer install
+        run: composer update --no-interaction --no-progress
+
+      - name: PHPCS
+        run: vendor/bin/phpcs --report=checkstyle | cs2pr
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress

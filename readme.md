@@ -49,8 +49,11 @@ PHP 8.1 or newer. No dependencies.
 
 ```
 docker compose -f docker-compose.dev.yml up -d
-docker compose -f docker-compose.dev.yml exec dev vendor/bin/phpunit
+docker compose -f docker-compose.dev.yml exec dev composer check
 ```
+
+`composer check` is the suite, PSR-12 and PHPStan at level 8. `composer cs-fix` puts right what
+the coding standard can put right by itself.
 
 The development image installs the extension on purpose, because the parity tests are the ones
 worth running and they skip themselves where there is nothing to compare against.
