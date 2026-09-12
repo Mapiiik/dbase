@@ -4,7 +4,9 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     tmpfs:
-      - /app/vendor:uid=1000,gid=1000,exec
+      - /app/vendor:exec
     volumes:
       - ./:/app
     working_dir: /app/
+    # The vendor tree is in memory, so it goes with the container and is fetched again on start.
+    command: sh -c "composer install --no-interaction && sleep infinity"

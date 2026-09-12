@@ -14,12 +14,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ['8.1', '8.2', '8.3', '8.4']
+        php-version: ['8.1', '8.2', '8.3', '8.4', '8.5']
         extension: [false]
         include:
           # One run with the extension installed, which is the only one that can say whether this
           # is a stand-in for it. The others prove it works where it has to stand alone.
-          - php-version: '8.4'
+          - php-version: '8.5'
             extension: true
 
     steps:
@@ -52,7 +52,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.5'
           tools: cs2pr
           coverage: none
 
