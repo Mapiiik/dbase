@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php-version }} ${{ matrix.extension && '(against ext-dbase)' || '(on its own)' }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.1', '8.2', '8.3', '8.4']
+        extension: [false]
+        include:
+          # One run with the extension installed, which is the only one that can say whether this
+          # is a stand-in for it. The others prove it works where it has to stand alone.
+          - php-version: '8.4'
+            extension: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: ${{ matrix.extension && 'dbase' || '' }}
+          coverage: none
+
+      - name: Composer install
+        run: composer update --no-interaction --no-progress
+
+      - name: Say which side is being tested
+        run: php -r 'echo "ext-dbase loaded: ", var_export(extension_loaded("dbase"), true), PHP_EOL;'
+
+      - name: PHPUnit
+        run: vendor/bin/phpunit

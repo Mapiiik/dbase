@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="./vendor/autoload.php"
+         colors="true"
+         beStrictAboutOutputDuringTests="true"
+         failOnWarning="true"
+         failOnNotice="true"
+         failOnDeprecation="true"
+>
+    <testsuites>
+        <testsuite name="mapik/dbase tests">
+            <directory>./tests</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory suffix=".php">./src</directory>
+            <file>dbase.inc.php</file>
+        </include>
+    </source>
+</phpunit>

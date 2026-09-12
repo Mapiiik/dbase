@@ -1,0 +1,17 @@
+# syntax=docker/dockerfile:1
+
+FROM webdevops/php-nginx:8.4-alpine
+
+ENV DEBUG="true"
+
+# The extension itself, because a stand-in is only worth what it can be held against. The parity
+# tests skip themselves where it is missing, which is also how they behave on a runner without it.
+RUN set -x \
+ && apk add -U --no-cache autoconf gcc libc-dev make \
+ && CPPFLAGS="-DHAVE_SYS_FILE_H" pecl install dbase \
+ && docker-php-ext-enable dbase \
+ && docker-run-bootstrap
+
+# Add on-start commands
+RUN echo '# Composer operations' >> /opt/docker/provision/entrypoint.d/99-composer.sh \
+ && echo 'gosu "${APPLICATION_USER}" composer install -d /app' >> /opt/docker/provision/entrypoint.d/99-composer.sh
