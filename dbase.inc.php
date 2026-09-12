@@ -7,6 +7,8 @@
  * them is called - and never at all where the extension is there to answer instead.
  */
 
+use Mapik\DBase\DBase;
+
 if (!defined('DBASE_RDONLY')) define('DBASE_RDONLY', 0);
 if (!defined('DBASE_WRONLY')) define('DBASE_WRONLY', 1);
 if (!defined('DBASE_RDWR'))   define('DBASE_RDWR',   2);

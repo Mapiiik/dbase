@@ -9,6 +9,8 @@
  * @see https://secure.php.net/manual/en/ref.dbase.php
  */
 
+namespace Mapik\DBase;
+
 class DBase {
 	/**
 	 * The byte a dBASE file ends with. It is written when the file is made and kept at the end

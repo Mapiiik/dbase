@@ -21,8 +21,11 @@ Two files, and the split is the point:
 - `src/DBase.php` holds the work, and the autoloader fetches it the first time one of those
   functions is called. Where the extension is installed that never happens at all.
 
-The class can also be used directly, which is what lets the two implementations be held against
-each other in the tests.
+The class can also be used directly as `Mapik\DBase\DBase`, which is what lets the two
+implementations be held against each other in the tests. It carries a namespace where the original
+did not: a global `DBase` is a name anything could claim, and two packages claiming it would fight
+over which one the autoloader hands out. The functions stay global, because being callable under
+their own names is the whole point of the package.
 
 ## What it matches
 

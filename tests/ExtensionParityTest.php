@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Mapik\DBase\Tests;
 
-use DBase;
+use Mapik\DBase\DBase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
