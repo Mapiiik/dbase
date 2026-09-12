@@ -601,7 +601,9 @@ class DBase
      */
     private static function putChar8($fd, int $value): void
     {
-        fwrite($fd, chr($value));
+        // A byte is a byte. chr() wraps anything wider by itself, and saying so here is what
+        // lets the header be written from counts without each one being checked first.
+        fwrite($fd, chr($value & 0xFF));
     }
 
     /**
