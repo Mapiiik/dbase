@@ -233,6 +233,32 @@ class DBase
     }
 
     /**
+     * The handle one of the functions was given, as the object it is really about.
+     *
+     * Those functions leave the parameter untyped, so that code written against the extension -
+     * where a handle is a resource - is accepted by a static analyser whichever of the two is
+     * installed. What actually arrives can still only be one of these, and anything else is the
+     * same mistake the extension would have refused.
+     *
+     * @param mixed $given Whatever the caller passed.
+     * @param string $called What it passed it to, for the message.
+     * @return self
+     */
+    public static function given($given, string $called): self
+    {
+        if ($given instanceof self) {
+            return $given;
+        }
+
+        throw new \TypeError(sprintf(
+            '%s(): Argument #1 ($dbase_identifier) must be of type %s, %s given',
+            $called,
+            self::class,
+            get_debug_type($given),
+        ));
+    }
+
+    /**
      * bool dbase_close ( resource $dbase_identifier )
      */
     public function close(): bool

@@ -178,6 +178,24 @@ class DBaseTest extends DatabaseTestCase
         $db->close();
     }
 
+    /**
+     * The functions leave the handle untyped so that an application written against the extension
+     * passes analysis either way. What actually arrives is still looked at.
+     */
+    public function testAHandleThatIsNotOneIsRefused(): void
+    {
+        $path = $this->path();
+
+        $db = $this->create($path, [['A', 'C', 4]]);
+        $this->assertSame($db, DBase::given($db, 'dbase_close'));
+        $db->close();
+
+        $this->expectException(\TypeError::class);
+        $this->expectExceptionMessage('dbase_close(): Argument #1 ($dbase_identifier) must be of type');
+
+        DBase::given(fopen($path, 'r'), 'dbase_close');
+    }
+
     private function lastByte(string $path): string
     {
         return substr((string)file_get_contents($path), -1);
