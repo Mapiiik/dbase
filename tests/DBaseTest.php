@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Mapik\DBase\Tests;
 
 use Mapik\DBase\DBase;
-use PHPUnit\Framework\TestCase;
 
 /**
  * What the implementation does on its own, whether or not the extension is installed.
@@ -13,34 +12,18 @@ use PHPUnit\Framework\TestCase;
  * The class is asked rather than the dbase_*() functions, because those step aside where the
  * extension is loaded and a test of them would then be a test of something else.
  */
-class DBaseTest extends TestCase
+class DBaseTest extends DatabaseTestCase
 {
-    /**
-     * @var list<string>
-     */
-    private array $written = [];
-
-    protected function tearDown(): void
-    {
-        foreach ($this->written as $path) {
-            @unlink($path);
-        }
-
-        $this->written = [];
-        parent::tearDown();
-    }
-
     public function testAFileIsWrittenAndReadBack(): void
     {
         $path = $this->path();
 
-        $db = DBase::create($path, [['NAME', 'C', 10], ['AMOUNT', 'N', 8, 2]]);
-        $this->assertNotFalse($db);
+        $db = $this->create($path, [['NAME', 'C', 10], ['AMOUNT', 'N', 8, 2]]);
         $this->assertTrue($db->add_record(['Nested', 19.9]));
         $this->assertTrue($db->add_record(['Street', 0]));
         $db->close();
 
-        $db = DBase::open($path, DBASE_RDONLY);
+        $db = $this->open($path);
         $this->assertSame(2, $db->numfields());
         $this->assertSame(2, $db->numrecords());
         $this->assertSame(
@@ -58,7 +41,7 @@ class DBaseTest extends TestCase
     {
         $path = $this->path();
 
-        $db = DBase::create($path, [['A', 'N', 8, 2]]);
+        $db = $this->create($path, [['A', 'N', 8, 2]]);
         $db->add_record([-7.5]);
         $db->add_record([0]);
         $db->close();
@@ -76,14 +59,14 @@ class DBaseTest extends TestCase
     {
         $path = $this->path();
 
-        $db = DBase::create($path, [['A', 'C', 5]]);
+        $db = $this->create($path, [['A', 'C', 5]]);
         $db->add_record(['ab']);
         $db->add_record(['abcdefg']);
         $db->close();
 
-        $db = DBase::open($path, DBASE_RDONLY);
-        $this->assertSame('ab   ', $db->get_record_with_names(1)['A']);
-        $this->assertSame('abcde', $db->get_record_with_names(2)['A']);
+        $db = $this->open($path);
+        $this->assertSame('ab   ', $this->record($db, 1)['A']);
+        $this->assertSame('abcde', $this->record($db, 2)['A']);
         $db->close();
     }
 
@@ -91,7 +74,7 @@ class DBaseTest extends TestCase
     {
         $path = $this->path();
 
-        $db = DBase::create($path, [['A', 'C', 4]]);
+        $db = $this->create($path, [['A', 'C', 4]]);
         $this->assertSame("\x1A", $this->lastByte($path), 'a database with nothing in it');
 
         $db->add_record(['one']);
@@ -109,7 +92,7 @@ class DBaseTest extends TestCase
     {
         $path = $this->path();
 
-        $db = DBase::create($path, [['A', 'C', 4]]);
+        $db = $this->create($path, [['A', 'C', 4]]);
         $db->add_record(['one']);
         $db->add_record(['two']);
         $db->add_record(['ten']);
@@ -117,10 +100,10 @@ class DBaseTest extends TestCase
         $this->assertTrue($db->pack());
         $db->close();
 
-        $db = DBase::open($path, DBASE_RDONLY);
+        $db = $this->open($path);
         $this->assertSame(2, $db->numrecords());
-        $this->assertSame('one ', $db->get_record_with_names(1)['A']);
-        $this->assertSame('ten ', $db->get_record_with_names(2)['A']);
+        $this->assertSame('one ', $this->record($db, 1)['A']);
+        $this->assertSame('ten ', $this->record($db, 2)['A']);
         $db->close();
     }
 
@@ -128,15 +111,15 @@ class DBaseTest extends TestCase
     {
         $path = $this->path();
 
-        $db = DBase::create($path, [['A', 'C', 4]]);
+        $db = $this->create($path, [['A', 'C', 4]]);
         $db->add_record(['one']);
         $db->add_record(['two']);
         $this->assertTrue($db->replace_record(['six'], 1));
         $db->close();
 
-        $db = DBase::open($path, DBASE_RDONLY);
-        $this->assertSame('six ', $db->get_record_with_names(1)['A']);
-        $this->assertSame('two ', $db->get_record_with_names(2)['A']);
+        $db = $this->open($path);
+        $this->assertSame('six ', $this->record($db, 1)['A']);
+        $this->assertSame('two ', $this->record($db, 2)['A']);
         $db->close();
     }
 
@@ -144,10 +127,10 @@ class DBaseTest extends TestCase
     {
         $path = $this->path();
 
-        $db = DBase::create($path, [['S', 'C', 5], ['N', 'N', 6, 2]]);
+        $db = $this->create($path, [['S', 'C', 5], ['N', 'N', 6, 2]]);
         $db->close();
 
-        $db = DBase::open($path, DBASE_RDONLY);
+        $db = $this->open($path);
         $this->assertSame(
             [
                 [
@@ -168,7 +151,7 @@ class DBaseTest extends TestCase
     {
         $path = $this->path();
 
-        $db = DBase::create($path, [['A', 'C', 4]]);
+        $db = $this->create($path, [['A', 'C', 4]]);
         $this->assertFalse($db->add_record(['one', 'two']), 'more values than fields');
         $this->assertFalse($db->get_record(1), 'a record that is not there');
         $this->assertFalse($db->delete_record(0), 'records are counted from one');
@@ -186,22 +169,13 @@ class DBaseTest extends TestCase
     {
         $path = $this->path();
 
-        $db = DBase::create($path, [['A', 'C', 4]]);
+        $db = $this->create($path, [['A', 'C', 4]]);
         $db->add_record(['one']);
         $db->close();
 
-        $db = DBase::open($path, DBASE_WRONLY);
-        $this->assertNotFalse($db);
+        $db = $this->open($path, DBASE_WRONLY);
         $this->assertSame(1, $db->numrecords());
         $db->close();
-    }
-
-    private function path(): string
-    {
-        $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid('dbase-', true) . '.dbf';
-        $this->written[] = $path;
-
-        return $path;
     }
 
     private function lastByte(string $path): string

@@ -12,6 +12,10 @@
 
 namespace Mapik\DBase;
 
+/**
+ * @phpstan-type FieldDefinition array<int, mixed>
+ * @phpstan-type Field array{name: string, type: string, length: int, precision: int, offset: int}
+ */
 class DBase
 {
     /**
@@ -20,18 +24,29 @@ class DBase
      */
     public const EOF_MARKER = 0x1A;
 
+    /**
+     * @var resource
+     */
     private $fd;
 
-    private $headerLength = 0;
+    private int $headerLength = 0;
 
-    private $fields = array();
-    private $fieldCount = 0;
+    /**
+     * @var list<Field>
+     */
+    private array $fields = array();
 
-    private $recordLength = 0;
-    private $recordCount = 0;
+    private int $fieldCount = 0;
 
-    //resource dbase_open ( string $filename , int $mode )
-    public static function open($filename, $mode)
+    private int $recordLength = 0;
+    private int $recordCount = 0;
+
+    /**
+     * resource dbase_open ( string $filename , int $mode )
+     *
+     * @return self|false
+     */
+    public static function open(string $filename, int $mode)
     {
         if (!file_exists($filename)) {
             return false;
@@ -52,8 +67,13 @@ class DBase
         return new DBase($fd);
     }
 
-    //resource dbase_create ( string $filename , array $fields [, int $type = DBASE_TYPE_DBASE ] )
-    public static function create($filename, $fields, $type = DBASE_TYPE_DBASE)
+    /**
+     * resource dbase_create ( string $filename , array $fields [, int $type = DBASE_TYPE_DBASE ] )
+     *
+     * @param list<FieldDefinition> $fields
+     * @return self|false
+     */
+    public static function create(string $filename, array $fields, int $type = DBASE_TYPE_DBASE)
     {
         if (file_exists($filename)) {
             return false;
@@ -74,9 +94,9 @@ class DBase
         self::putChar8($fd, 3);
 
         // Byte 1-3 (3 bytes): Date of last update; formatted as YYMMDD
-        self::putChar8($fd, date('Y') - 1900);
-        self::putChar8($fd, date('m'));
-        self::putChar8($fd, date('d'));
+        self::putChar8($fd, (int)date('Y') - 1900);
+        self::putChar8($fd, (int)date('m'));
+        self::putChar8($fd, (int)date('d'));
 
         // Byte 4-7 (32-bit number): Number of records in the database file.  Currently 0
         self::putInt32($fd, 0);
@@ -101,8 +121,8 @@ class DBase
         self::putChar8($fd, 0);
 
         // Byte 15 (1 byte): Encryption flag. If this flag is set to 1, the message Database
-        // encrypted appears. Changing this flag to 0 removes the message, but does not
-        // decrypt the file.
+        // encrypted appears. Changing this flag to 0 removes the message, but does not decrypt
+        // the file.
         self::putChar8($fd, 0);
 
         // Byte 16-27 (12 bytes): Reserved for dBASE for DOS in a multi-user environment
@@ -122,19 +142,34 @@ class DBase
 
         // Byte 32 - n (32 bytes each): Field descriptor array
         foreach ($fields as $field) {
-            self::putStringNull($fd, $field[0], 11);   // Byte 0 - 10 (11 bytes): Field name in ASCII (zero-filled)
-            self::putString($fd, $field[1], 1);       // Byte 11 (1 byte): Field type in ASCII (C, D, F, L, M, or N)
-            self::putInt32($fd, 0);                    // Byte 12 - 15 (4 bytes): Reserved
-            // Byte 16 (1 byte): Field length in binary. The longest a field may be is 254
+            // Byte 0 - 10 (11 bytes): Field name in ASCII (zero-filled)
+            self::putStringNull($fd, (string)$field[0], 11);
+
+            // Byte 11 (1 byte): Field type in ASCII (C, D, F, L, M, or N)
+            self::putString($fd, (string)$field[1], 1);
+
+            // Byte 12 - 15 (4 bytes): Reserved
+            self::putInt32($fd, 0);
+
+            // Byte 16 (1 byte): Field length in binary. The longest a field may be is 254 (0xFE).
             self::putChar8($fd, self::length($field));
-            self::putChar8($fd, self::precision($field)); // Byte 17 (1 byte): Field decimal count in binary
-            self::putInt16($fd, 0);                    // Byte 18 - 19 (2 bytes): Work area ID
-            self::putChar8($fd, 0);                    // Byte 20 (1 byte): Example (??)
-            self::putInt32($fd, 0);                    // Byte 21 - 30 (10 bytes): Reserved
+
+            // Byte 17 (1 byte): Field decimal count in binary
+            self::putChar8($fd, self::precision($field));
+
+            // Byte 18 - 19 (2 bytes): Work area ID
+            self::putInt16($fd, 0);
+
+            // Byte 20 (1 byte): Example (??)
+            self::putChar8($fd, 0);
+
+            // Byte 21 - 30 (10 bytes): Reserved
+            self::putInt32($fd, 0);
             self::putInt32($fd, 0);
             self::putInt16($fd, 0);
-            // Byte 31 (1 byte): Production MDX field flag; 1 if the field has an index tag
-            // in the production MDX file, 0 if not
+
+            // Byte 31 (1 byte): Production MDX field flag; 1 if the field has an index tag in
+            // the production MDX file, 0 if not
             self::putChar8($fd, 0);
         }
 
@@ -147,7 +182,11 @@ class DBase
         return new DBase($fd);
     }
 
-    // Create DBase instance
+    /**
+     * Create DBase instance
+     *
+     * @param resource $fd
+     */
     private function __construct($fd)
     {
         $this->fd = $fd;
@@ -161,7 +200,7 @@ class DBase
         $this->headerLength = self::getInt16($fd);
 
         // Number of fields is (headerLength - 33) / 32)
-        $this->fieldCount = (int)(($this->headerLength - 33) / 32);
+        $this->fieldCount = intdiv($this->headerLength - 33, 32);
 
         // Byte 10-11 (16-bit number): Number of bytes in record.
         fseek($this->fd, 10, SEEK_SET);
@@ -171,26 +210,42 @@ class DBase
         fseek($fd, 32, SEEK_SET);
         $offset = 1;
         for ($i = 0; $i < $this->fieldCount; $i++) {
-            $data  = fread($this->fd, 32);
             // unsigned length and precision
-            $field = unpack('a11name/a1type/c4/C1length/C1precision/s1workid/c1example/c10/c1production', $data);
-            $field['name'] = trim((string)$field['name'], "\0 ");
-            $field['type'] = trim((string)$field['type']);
-            $field['offset'] = $offset;
+            $read = unpack(
+                'a11name/a1type/c4/C1length/C1precision/s1workid/c1example/c10/c1production',
+                self::read($this->fd, 32),
+            );
+            if ($read === false) {
+                break;
+            }
+
+            $field = array(
+                'name'      => trim((string)$read['name'], "\0 "),
+                'type'      => trim((string)$read['type']),
+                'length'    => (int)$read['length'],
+                'precision' => (int)$read['precision'],
+                'offset'    => $offset,
+            );
             $offset += $field['length'];
 
             $this->fields[] = $field;
         }
     }
 
-    //bool dbase_close ( resource $dbase_identifier )
-    public function close()
+    /**
+     * bool dbase_close ( resource $dbase_identifier )
+     */
+    public function close(): bool
     {
         return fclose($this->fd);
     }
 
-    //array dbase_get_header_info ( resource $dbase_identifier )
-    public function get_header_info()
+    /**
+     * array dbase_get_header_info ( resource $dbase_identifier )
+     *
+     * @return list<array{name: string, type: string, length: int, precision: int, format: string, offset: int}>
+     */
+    public function get_header_info(): array
     {
         $info = array();
 
@@ -210,20 +265,28 @@ class DBase
         return $info;
     }
 
-    //int dbase_numfields ( resource $dbase_identifier )
-    public function numfields()
+    /**
+     * int dbase_numfields ( resource $dbase_identifier )
+     */
+    public function numfields(): int
     {
         return $this->fieldCount;
     }
 
-    //int dbase_numrecords ( resource $dbase_identifier )
-    public function numrecords()
+    /**
+     * int dbase_numrecords ( resource $dbase_identifier )
+     */
+    public function numrecords(): int
     {
         return $this->recordCount;
     }
 
-    //bool dbase_add_record ( resource $dbase_identifier , array $record )
-    public function add_record($record)
+    /**
+     * bool dbase_add_record ( resource $dbase_identifier , array $record )
+     *
+     * @param array<int, mixed> $record
+     */
+    public function add_record(array $record): bool
     {
         if (count($record) != $this->fieldCount) {
             return false;
@@ -249,8 +312,12 @@ class DBase
         return true;
     }
 
-    //bool dbase_replace_record ( resource $dbase_identifier , array $record , int $record_number )
-    public function replace_record($record, $record_number)
+    /**
+     * bool dbase_replace_record ( resource $dbase_identifier , array $record , int $record_number )
+     *
+     * @param array<int, mixed> $record
+     */
+    public function replace_record(array $record, int $record_number): bool
     {
         if (count($record) != $this->fieldCount) {
             return false;
@@ -264,8 +331,10 @@ class DBase
         return $this->putRecord($record);
     }
 
-    //bool dbase_delete_record ( resource $dbase_identifier , int $record_number )
-    public function delete_record($record_number)
+    /**
+     * bool dbase_delete_record ( resource $dbase_identifier , int $record_number )
+     */
+    public function delete_record(int $record_number): bool
     {
         if ($record_number < 1 || $record_number > $this->recordCount) {
             return false;
@@ -276,8 +345,12 @@ class DBase
         return true;
     }
 
-    //array dbase_get_record ( resource $dbase_identifier , int $record_number )
-    public function get_record($record_number)
+    /**
+     * array dbase_get_record ( resource $dbase_identifier , int $record_number )
+     *
+     * @return array<int|string, mixed>|false
+     */
+    public function get_record(int $record_number)
     {
         if ($record_number < 1 || $record_number > $this->recordCount) {
             return false;
@@ -289,7 +362,7 @@ class DBase
 
         $record = array();
         foreach ($this->fields as $i => $field) {
-            $record[$i] = self::castOut(fread($this->fd, $field['length']), $field);
+            $record[$i] = self::castOut(self::read($this->fd, $field['length']), $field);
         }
 
         // The extension puts the flag after the fields, not before them
@@ -298,8 +371,12 @@ class DBase
         return $record;
     }
 
-    //array dbase_get_record_with_names ( resource $dbase_identifier , int $record_number )
-    public function get_record_with_names($record_number)
+    /**
+     * array dbase_get_record_with_names ( resource $dbase_identifier , int $record_number )
+     *
+     * @return array<string, mixed>|false
+     */
+    public function get_record_with_names(int $record_number)
     {
         $record = $this->get_record($record_number);
         if ($record === false) {
@@ -315,8 +392,10 @@ class DBase
         return $named;
     }
 
-    //bool dbase_pack ( resource $dbase_identifier )
-    public function pack()
+    /**
+     * bool dbase_pack ( resource $dbase_identifier )
+     */
+    public function pack(): bool
     {
         $in_offset = $out_offset = $this->headerLength;
 
@@ -325,7 +404,7 @@ class DBase
 
         while ($rec_count > 0) {
             fseek($this->fd, $in_offset, SEEK_SET);
-            $record = fread($this->fd, $this->recordLength);
+            $record = self::read($this->fd, $this->recordLength);
 
             $deleted = substr($record, 0, 1);
             if ($deleted != '*') {
@@ -341,7 +420,7 @@ class DBase
         }
 
         // The marker goes back on the end, so a packed file still ends the way a file should
-        ftruncate($this->fd, $out_offset);
+        ftruncate($this->fd, max(0, $out_offset));
         fseek($this->fd, $out_offset, SEEK_SET);
         self::putChar8($this->fd, self::EOF_MARKER);
 
@@ -356,7 +435,11 @@ class DBase
     /*
      * A few utilitiy functions
      */
-    private static function length($field)
+
+    /**
+     * @param FieldDefinition $field
+     */
+    private static function length(array $field): int
     {
         switch ($field[1]) {
             // Date: Numbers and a character to separate month, day, and year (stored
@@ -385,22 +468,24 @@ class DBase
     /**
      * How many decimals a field keeps. Only the numeric types are given one, and the rest of the
      * definition simply stops before it.
+     *
+     * @param FieldDefinition $field
      */
-    private static function precision($field)
+    private static function precision(array $field): int
     {
-        if (!self::isNumeric($field[1])) {
+        if (!self::isNumeric((string)$field[1])) {
             return 0;
         }
 
         return isset($field[3]) ? (int)$field[3] : 0;
     }
 
-    private static function isNumeric($type)
+    private static function isNumeric(string $type): bool
     {
         return $type === 'N' || $type === 'F';
     }
 
-    private static function typeName($type)
+    private static function typeName(string $type): string
     {
         switch ($type) {
             case 'C':
@@ -428,8 +513,10 @@ class DBase
      * The extension goes by the type of what it is handed rather than by the field: a float is
      * written to the field's decimals, an integer as it stands, and a string untouched. That is
      * why 0 and 0.0 come out differently, and it has to be matched rather than tidied up.
+     *
+     * @param Field $field
      */
-    private static function castIn($value, $field)
+    private static function castIn(mixed $value, array $field): string
     {
         if ($value === null) {
             return '';
@@ -440,29 +527,26 @@ class DBase
             if (is_float($value)) {
                 return sprintf('%.' . $field['precision'] . 'f', round($value, $field['precision']));
             }
-            if (is_int($value)) {
-                return (string)$value;
-            }
 
-            return (string)$value;
+            return is_scalar($value) ? (string)$value : '';
         }
 
         if (is_bool($value)) {
             return $value ? '1' : '';
         }
 
-        return (string)$value;
+        return is_scalar($value) ? (string)$value : '';
     }
 
     /**
      * Turns the characters a field holds back into a value, the way the extension does: a number
      * with no decimals is an integer, one with decimals a float, and text is handed back padded
      * exactly as it is stored.
+     *
+     * @param Field $field
      */
-    private static function castOut($raw, $field)
+    private static function castOut(string $raw, array $field): mixed
     {
-        $raw = (string)$raw;
-
         if (self::isNumeric($field['type'])) {
             return $field['precision'] > 0 ? (float)trim($raw) : (int)trim($raw);
         }
@@ -486,64 +570,99 @@ class DBase
      * Functions for reading and writing bytes
      */
 
-    private static function getChar8($fd)
+    /**
+     * Reads the bytes asked for, and answers with what there was.
+     *
+     * A short read means a file that has been cut off, which is a broken database rather than
+     * something to be recovered from here. The callers are all working to the lengths the header
+     * gave them, so this only ever comes up on one.
+     *
+     * @param resource $fd
+     */
+    private static function read($fd, int $length): string
     {
-        return ord(fread($fd, 1));
-    }
-
-    private static function putChar8($fd, $value)
-    {
-        return fwrite($fd, chr((int)$value));
-    }
-
-    private static function getInt16($fd, $n = 1)
-    {
-        $data = fread($fd, 2 * $n);
-        $i = unpack("S$n", $data);
-
-        if ($n == 1) {
-            return (int)$i[1];
-        } else {
-            return array_merge($i);
+        if ($length < 1) {
+            return '';
         }
+
+        return (string)fread($fd, $length);
     }
 
-    private static function putInt16($fd, $value)
+    /**
+     * @param resource $fd
+     */
+    private static function getChar8($fd): int
     {
-        return fwrite($fd, pack('S', $value));
+        return ord(self::read($fd, 1));
     }
 
-    private static function getInt32($fd, $n = 1)
+    /**
+     * @param resource $fd
+     */
+    private static function putChar8($fd, int $value): void
     {
-        $data = fread($fd, 4 * $n);
-        $i = unpack("L$n", $data);
-
-        if ($n == 1) {
-            return (int)$i[1];
-        } else {
-            return array_merge($i);
-        }
+        fwrite($fd, chr($value));
     }
 
-    private static function putInt32($fd, $value)
+    /**
+     * @param resource $fd
+     */
+    private static function getInt16($fd): int
     {
-        return fwrite($fd, pack('L', $value));
+        $read = unpack('S', self::read($fd, 2));
+
+        return $read === false ? 0 : (int)$read[1];
     }
 
-    private static function putString($fd, $value, $length = 254)
+    /**
+     * @param resource $fd
+     */
+    private static function putInt16($fd, int $value): void
     {
-        return fwrite($fd, pack('A' . $length, $value));
+        fwrite($fd, pack('S', $value));
     }
 
-    private static function putStringNull($fd, $value, $length = 254)
+    /**
+     * @param resource $fd
+     */
+    private static function getInt32($fd): int
     {
-        return fwrite($fd, pack('a' . $length, $value));
+        $read = unpack('L', self::read($fd, 4));
+
+        return $read === false ? 0 : (int)$read[1];
     }
 
-    private function putRecord($record)
+    /**
+     * @param resource $fd
+     */
+    private static function putInt32($fd, int $value): void
+    {
+        fwrite($fd, pack('L', $value));
+    }
+
+    /**
+     * @param resource $fd
+     */
+    private static function putString($fd, string $value, int $length = 254): void
+    {
+        fwrite($fd, pack('A' . $length, $value));
+    }
+
+    /**
+     * @param resource $fd
+     */
+    private static function putStringNull($fd, string $value, int $length = 254): void
+    {
+        fwrite($fd, pack('a' . $length, $value));
+    }
+
+    /**
+     * @param array<int, mixed> $record
+     */
+    private function putRecord(array $record): bool
     {
         foreach ($this->fields as $i => $field) {
-            $value = self::castIn($record[$i], $field);
+            $value = self::castIn($record[$i] ?? null, $field);
 
             // Numbers sit at the right hand end of the field, text at the left
             if (self::isNumeric($field['type'])) {

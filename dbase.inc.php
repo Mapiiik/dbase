@@ -28,62 +28,84 @@ if (!defined('DBASE_TYPE_FOXPRO')) {
 }
 
 if (!function_exists('dbase_open')) {
-    function dbase_open($filename, $mode)
+    /**
+     * @return DBase|false
+     */
+    function dbase_open(string $filename, int $mode)
     {
         return DBase::open($filename, $mode);
     }
 
-    function dbase_create($filename, $fields, $type = DBASE_TYPE_DBASE)
+    /**
+     * @param list<array<int, mixed>> $fields
+     * @return DBase|false
+     */
+    function dbase_create(string $filename, array $fields, int $type = DBASE_TYPE_DBASE)
     {
         return DBase::create($filename, $fields, $type);
     }
 
-    function dbase_close($dbase_identifier)
+    function dbase_close(DBase $dbase_identifier): bool
     {
         return $dbase_identifier->close();
     }
 
-    function dbase_get_header_info($dbase_identifier)
+    /**
+     * @return list<array{name: string, type: string, length: int, precision: int, format: string, offset: int}>
+     */
+    function dbase_get_header_info(DBase $dbase_identifier): array
     {
         return $dbase_identifier->get_header_info();
     }
 
-    function dbase_numfields($dbase_identifier)
+    function dbase_numfields(DBase $dbase_identifier): int
     {
         return $dbase_identifier->numfields();
     }
 
-    function dbase_numrecords($dbase_identifier)
+    function dbase_numrecords(DBase $dbase_identifier): int
     {
         return $dbase_identifier->numrecords();
     }
 
-    function dbase_add_record($dbase_identifier, $record)
+    /**
+     * @param array<int, mixed> $record
+     */
+    function dbase_add_record(DBase $dbase_identifier, array $record): bool
     {
         return $dbase_identifier->add_record($record);
     }
 
-    function dbase_delete_record($dbase_identifier, $record_number)
+    function dbase_delete_record(DBase $dbase_identifier, int $record_number): bool
     {
         return $dbase_identifier->delete_record($record_number);
     }
 
-    function dbase_replace_record($dbase_identifier, $record, $record_number)
+    /**
+     * @param array<int, mixed> $record
+     */
+    function dbase_replace_record(DBase $dbase_identifier, array $record, int $record_number): bool
     {
         return $dbase_identifier->replace_record($record, $record_number);
     }
 
-    function dbase_get_record($dbase_identifier, $record_number)
+    /**
+     * @return array<int|string, mixed>|false
+     */
+    function dbase_get_record(DBase $dbase_identifier, int $record_number)
     {
         return $dbase_identifier->get_record($record_number);
     }
 
-    function dbase_get_record_with_names($dbase_identifier, $record_number)
+    /**
+     * @return array<string, mixed>|false
+     */
+    function dbase_get_record_with_names(DBase $dbase_identifier, int $record_number)
     {
         return $dbase_identifier->get_record_with_names($record_number);
     }
 
-    function dbase_pack($dbase_identifier)
+    function dbase_pack(DBase $dbase_identifier): bool
     {
         return $dbase_identifier->pack();
     }

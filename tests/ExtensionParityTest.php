@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Mapik\DBase\Tests;
 
-use Mapik\DBase\DBase;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\TestCase;
 
 /**
  * The same database written both ways, held against each other byte for byte.
@@ -14,13 +12,8 @@ use PHPUnit\Framework\TestCase;
  * This is the only test that can say whether the stand-in is one, so where the extension is
  * missing it skips rather than passing quietly and saying nothing.
  */
-class ExtensionParityTest extends TestCase
+class ExtensionParityTest extends DatabaseTestCase
 {
-    /**
-     * @var list<string>
-     */
-    private array $written = [];
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -28,16 +21,6 @@ class ExtensionParityTest extends TestCase
         if (!extension_loaded('dbase')) {
             $this->markTestSkipped('There is nothing to compare against without ext-dbase.');
         }
-    }
-
-    protected function tearDown(): void
-    {
-        foreach ($this->written as $path) {
-            @unlink($path);
-        }
-
-        $this->written = [];
-        parent::tearDown();
     }
 
     /**
@@ -87,10 +70,7 @@ class ExtensionParityTest extends TestCase
     {
         [$theirs, $ours] = $this->build($structure, $records);
 
-        $this->assertSame(
-            bin2hex((string)file_get_contents($theirs)),
-            bin2hex((string)file_get_contents($ours)),
-        );
+        $this->assertSameBytes($theirs, $ours);
     }
 
     /**
@@ -103,7 +83,8 @@ class ExtensionParityTest extends TestCase
         [$theirs, $ours] = $this->build($structure, $records);
 
         $theirDb = dbase_open($theirs, DBASE_RDONLY);
-        $ourDb = DBase::open($ours, DBASE_RDONLY);
+        $this->assertNotFalse($theirDb);
+        $ourDb = $this->open($ours);
 
         $this->assertSame(dbase_numfields($theirDb), $ourDb->numfields());
         $this->assertSame(dbase_numrecords($theirDb), $ourDb->numrecords());
@@ -128,43 +109,34 @@ class ExtensionParityTest extends TestCase
 
     public function testDeletingAndPackingLeaveTheSameFile(): void
     {
-        $structure = [['A', 'C', 4]];
-        $records = [['one'], ['two'], ['ten']];
-
-        [$theirs, $ours] = $this->build($structure, $records);
+        [$theirs, $ours] = $this->build([['A', 'C', 4]], [['one'], ['two'], ['ten']]);
 
         $theirDb = dbase_open($theirs, DBASE_RDWR);
-        $ourDb = DBase::open($ours, DBASE_RDWR);
+        $this->assertNotFalse($theirDb);
+        $ourDb = $this->open($ours, DBASE_RDWR);
 
         dbase_delete_record($theirDb, 2);
         $ourDb->delete_record(2);
-        $this->assertSame(
-            bin2hex((string)file_get_contents($theirs)),
-            bin2hex((string)file_get_contents($ours)),
-            'after marking one as gone',
-        );
+        $this->assertSameBytes($theirs, $ours, 'after marking one as gone');
 
         dbase_pack($theirDb);
         $ourDb->pack();
         dbase_close($theirDb);
         $ourDb->close();
 
-        $this->assertSame(
-            bin2hex((string)file_get_contents($theirs)),
-            bin2hex((string)file_get_contents($ours)),
-            'after packing',
-        );
+        $this->assertSameBytes($theirs, $ours, 'after packing');
     }
 
     public function testReplacingARecordLeavesTheSameFile(): void
     {
-        $structure = [['A', 'C', 4], ['B', 'N', 6, 2]];
-        $records = [['one', 1.0], ['two', 2.5]];
-
-        [$theirs, $ours] = $this->build($structure, $records);
+        [$theirs, $ours] = $this->build(
+            [['A', 'C', 4], ['B', 'N', 6, 2]],
+            [['one', 1.0], ['two', 2.5]],
+        );
 
         $theirDb = dbase_open($theirs, DBASE_RDWR);
-        $ourDb = DBase::open($ours, DBASE_RDWR);
+        $this->assertNotFalse($theirDb);
+        $ourDb = $this->open($ours, DBASE_RDWR);
 
         dbase_replace_record($theirDb, ['six', 6.75], 1);
         $ourDb->replace_record(['six', 6.75], 1);
@@ -172,9 +144,18 @@ class ExtensionParityTest extends TestCase
         dbase_close($theirDb);
         $ourDb->close();
 
+        $this->assertSameBytes($theirs, $ours);
+    }
+
+    /**
+     * Compared as hexadecimal, so that a failure names the byte rather than printing the file.
+     */
+    private function assertSameBytes(string $theirs, string $ours, string $message = ''): void
+    {
         $this->assertSame(
             bin2hex((string)file_get_contents($theirs)),
             bin2hex((string)file_get_contents($ours)),
+            $message,
         );
     }
 
@@ -187,29 +168,22 @@ class ExtensionParityTest extends TestCase
      */
     private function build(array $structure, array $records): array
     {
-        $theirs = $this->path();
-        $ours = $this->path();
+        $theirs = $this->path('theirs-');
+        $ours = $this->path('ours-');
 
         $theirDb = dbase_create($theirs, $structure);
+        $this->assertNotFalse($theirDb);
         foreach ($records as $record) {
             dbase_add_record($theirDb, $record);
         }
         dbase_close($theirDb);
 
-        $ourDb = DBase::create($ours, $structure);
+        $ourDb = $this->create($ours, $structure);
         foreach ($records as $record) {
             $ourDb->add_record($record);
         }
         $ourDb->close();
 
         return [$theirs, $ours];
-    }
-
-    private function path(): string
-    {
-        $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid('parity-', true) . '.dbf';
-        $this->written[] = $path;
-
-        return $path;
     }
 }
